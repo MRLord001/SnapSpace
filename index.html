@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapSpace — Хостинг отчетов GTA 5</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%236366f1' d='M320 96c0-17.7-14.3-32-32-32h-64c-17.7 0-32 14.3-32 32s14.3 32 32 32h64c17.7 0 32-14.3 32-32zM256 160c-53 0-96 43-96 96s43 96 96 96s96-43 96-96s-43-96-96-96zm0 144c-26.5 0-48-21.5-48-48s21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48zM448 256c0-106-86-192-192-192V0C397.4 0 512 114.6 512 256s-114.6 256-256 256V448c106 0 192-86 192-192zM0 256c0 106 86 192 192 192V512C114.6 512 0 397.4 0 256S114.6 0 256 0V64C150 64 64 150 64 256z'/></svg>">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .pdf-viewer::-webkit-scrollbar { width: 6px; }
+        .pdf-viewer::-webkit-scrollbar-track { background: #09090b; }
+        .pdf-viewer::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        body { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans min-h-screen flex flex-col relative">
+
+    <div id="file-drag-overlay" class="hidden fixed inset-0 bg-zinc-950/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center pointer-events-none transition-all duration-300 opacity-0">
+        <div class="border-2 border-dashed border-indigo-500 bg-zinc-900/50 p-12 rounded-3xl flex flex-col items-center gap-4 scale-95 transition-transform duration-300 max-w-sm text-center shadow-2xl shadow-indigo-500/10">
+            <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl animate-bounce">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-white mb-1">Массовая загрузка</h3>
+                <p class="text-sm text-zinc-400">Бросайте скриншоты в любое место, чтобы начать загрузку</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="sticky top-0 z-40 w-full bg-zinc-950/80 backdrop-blur border-b border-zinc-900 flex-shrink-0">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.reload()">
+                <div class="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/10">
+                    <i class="fa-solid fa-camera-retro text-xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">SnapSpace</h1>
+            </div>
+            
+            <nav class="flex bg-zinc-900 border border-zinc-800 p-1 rounded-xl gap-1 text-sm font-medium w-full md:w-auto overflow-x-auto justify-center">
+                <button onclick="showSection('main')" id="nav-main" class="px-3 sm:px-4 py-2 rounded-lg text-indigo-400 bg-zinc-950 border border-zinc-800/80 transition-all whitespace-nowrap">Главная</button>
+                <button onclick="showSection('my-albums')" id="nav-my-albums" class="px-3 sm:px-4 py-2 rounded-lg text-zinc-400 hover:text-white transition-all whitespace-nowrap">Мои альбомы</button>
+                <button onclick="showSection('my-photos')" id="nav-my-photos" class="px-3 sm:px-4 py-2 rounded-lg text-zinc-400 hover:text-white transition-all whitespace-nowrap">Мои фото</button>
+            </nav>
+
+            <div class="flex items-center gap-2 w-full md:w-auto justify-center md:justify-end">
+                <a href="https://github.com/MRLord001/SnapSpace" target="_blank" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 p-2.5 rounded-xl text-sm transition-all" title="Открыть репозиторий проекта">
+                    <i class="fa-brands fa-github text-base"></i>
+                </a>
+                <a href="https://discord.com/users/926124742027661312" target="_blank" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-indigo-400 p-2.5 rounded-xl text-sm transition-all flex items-center gap-2 font-medium" title="Связаться в Discord">
+                    <i class="fa-brands fa-discord text-base"></i> <span class="text-xs text-zinc-300 hidden sm:inline">Разработчик</span>
+                </a>
+                <button id="create-album-btn" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/15">
+                    <i class="fa-solid fa-plus"></i> Создать альбом
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-6 sm:py-8">
+
+        <div id="album-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl scale-95 transition-all">
+                <h3 class="text-lg font-semibold mb-4">Новый альбом</h3>
+                <input type="text" id="album-title-input" placeholder="Название альбома (например: Отчет Патруль 24.06)" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm mb-4 text-white focus:outline-none focus:border-indigo-500">
+                
+                <label class="block text-xs font-medium text-zinc-400 mb-2">Время жизни альбома: <span id="album-time-label" class="text-indigo-400 font-bold">24 ч.</span></label>
+                <input type="range" id="album-time-input" min="8" max="24" value="24" class="w-full accent-indigo-600 mb-6 h-2 bg-zinc-800 rounded-lg cursor-pointer" oninput="document.getElementById('album-time-label').textContent = this.value + ' ч.'">
+                
+                <div class="flex justify-end gap-2 text-sm">
+                    <button id="close-modal-btn" class="px-4 py-2.5 text-zinc-400 hover:text-white transition-colors">Отмена</button>
+                    <button id="save-album-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium transition-colors">Создать</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="privacy-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-zinc-900 border border-zinc-800 w-full max-w-lg rounded-2xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div class="flex justify-between items-center pb-3 border-b border-zinc-800 mb-4 flex-shrink-0">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-indigo-400"></i> Политика конфиденциальности
+                    </h3>
+                    <button onclick="togglePrivacyModal(false)" class="text-zinc-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="overflow-y-auto pdf-viewer flex-grow pr-1 space-y-4 text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                    <p><strong class="text-zinc-200">1. Бессерверная архитектура:</strong> SnapSpace работает полностью без хранения ваших данных на наших серверах. Все скрипты выполняются на стороне вашего браузера.</p>
+                    <p><strong class="text-zinc-200">2. Хранение изображений:</strong> Все ваши загружаемые скриншоты и медиафайлы отправляются напрямую в защищенное стороннее облачное хранилище через официальный шифрованный API-протокол.</p>
+                    <p><strong class="text-zinc-200">3. Локальные данные (Приватность):</strong> История ваших альбомов, списки сгенерированных ссылок для отчетов GTA 5 и уникальные токены сессий сохраняются строго внутри вашего браузера через технологию <code class="bg-zinc-950 px-1 py-0.5 rounded text-indigo-400">LocalStorage</code>. Никакие третьи лица или сторонние администраторы не имеют удаленного доступа к вашей истории загрузок.</p>
+                    <p><strong class="text-zinc-200">4. Автоматическое удаление:</strong> Встроенные таймеры обратного отсчета очищают записи из вашей локальной памяти по истечении выбранного срока (от 8 до 24 часов).</p>
+                </div>
+                <div class="flex justify-end pt-4 border-t border-zinc-800 mt-4 flex-shrink-0">
+                    <button onclick="togglePrivacyModal(false)" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-medium transition-colors">Я понял</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-main" class="section-view">
+            <div class="text-center max-w-md mx-auto mb-6 sm:mb-8 px-2">
+                <h2 class="text-lg sm:text-xl font-bold mb-2">Быстрая массовая загрузка фото</h2>
+                <p class="text-zinc-500 text-xs sm:text-sm">Фотографии загрузятся без создания альбома и будут видны во вкладке «Мои фото».</p>
+            </div>
+            
+            <div class="max-w-xs mx-auto mb-6 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-sm">
+                <label class="block text-xs font-medium text-zinc-400 mb-2 text-center">Удалить эти фото через: <span id="photo-time-label" class="text-indigo-400 font-bold">24 ч.</span></label>
+                <input type="range" id="photo-time-input" min="8" max="24" value="24" class="w-full accent-indigo-600 h-2 bg-zinc-800 rounded-lg cursor-pointer" oninput="document.getElementById('photo-time-label').textContent = this.value + ' ч.'">
+            </div>
+
+            <div id="main-drop-zone" class="relative border-2 border-dashed border-zinc-800 hover:border-indigo-500/50 bg-zinc-900/10 hover:bg-zinc-900/30 rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all mb-6 group overflow-hidden">
+                <input type="file" id="main-file-input" accept="image/*" multiple class="hidden">
+                
+                <div id="main-drop-content" class="block">
+                    <i class="fa-solid fa-images text-2xl sm:text-3xl text-zinc-500 group-hover:text-indigo-400 mb-3 sm:mb-4 block transition-transform group-hover:scale-110"></i>
+                    <p class="text-xs sm:text-sm font-medium text-zinc-300">Перетащите кучу фото сюда или <span class="text-indigo-400 group-hover:underline">выберите файлы разом</span></p>
+                </div>
+
+                <div id="main-progress-content" class="hidden flex flex-col items-center justify-center py-2 animate-fade-in">
+                    <div class="text-indigo-400 font-bold text-xl mb-2" id="main-progress-text">0%</div>
+                    <p class="text-xs text-zinc-400 mb-4" id="main-status-text">Отправка и оптимизация файлов...</p>
+                    <div class="w-full max-w-xs bg-zinc-800 h-2 rounded-full overflow-hidden border border-zinc-700">
+                        <div id="main-progress-bar" class="bg-indigo-600 h-full w-0 transition-all duration-150 ease-out"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-xl mx-auto mb-12 bg-amber-950/20 border border-amber-900/40 p-4 rounded-2xl flex items-start gap-3 shadow-md shadow-amber-950/5">
+                <div class="text-amber-500 mt-0.5"><i class="fa-solid fa-triangle-exclamation text-base sm:text-lg"></i></div>
+                <div class="text-xs sm:text-sm text-amber-200/80 leading-relaxed">
+                    <strong class="text-amber-400 block font-semibold mb-0.5">Проблема с загрузкой скриншотов?</strong>
+                    Если шкала прогресса зависает или выдает ошибку сети, включите <strong class="text-amber-400 font-bold">VPN или Прокси</strong>. Серверы фотохостинга могут быть заблокированы интернет-провайдерами на территории РФ.
+                </div>
+            </div>
+
+            <div id="recent-uploads-container" class="hidden border-t border-zinc-900 pt-8">
+                <div class="flex items-center gap-2 mb-6">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h3 class="text-sm sm:text-base font-bold tracking-tight text-zinc-400">Ваша недавняя активность</h3>
+                </div>
+                <div id="recent-uploads-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6"></div>
+            </div>
+        </div>
+
+        <div id="section-album-view" class="section-view hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8 border-b border-zinc-900 pb-4">
+                <div>
+                    <h2 id="album-title" class="text-2xl sm:text-3xl font-bold mb-1 text-white truncate max-w-[280px] sm:max-w-md">---</h2>
+                    <p id="album-counter" class="text-xs sm:text-sm text-zinc-400"><i class="fa-regular fa-images mr-1"></i> <span>Загружено: 0 из 23 фото</span></p>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button id="share-album-btn" class="flex-1 sm:flex-none justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium items-center gap-2 transition-all">
+                        <i class="fa-regular fa-share-from-square"></i> Поделиться альбомом
+                    </button>
+                    <button id="delete-album-btn" class="flex-1 sm:flex-none justify-center bg-red-950/40 hover:bg-red-600 border border-red-900/50 text-red-400 hover:text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium items-center gap-2 transition-all">
+                        <i class="fa-solid fa-trash-can"></i> Удалить альбом
+                    </button>
+                </div>
+            </div>
+            
+            <div id="album-drop-zone" class="relative border-2 border-dashed border-zinc-800 hover:border-indigo-500/50 bg-zinc-900/10 hover:bg-zinc-900/30 rounded-2xl p-8 sm:p-10 text-center cursor-pointer mb-8 sm:mb-12 overflow-hidden">
+                <input type="file" id="album-file-input" accept="image/*" multiple class="hidden">
+                <div id="album-drop-content" class="block">
+                    <p class="text-xs sm:text-sm font-medium text-zinc-300">Перетащите или выберите кучу фото (Макс 23 шт. в альбоме)</p>
+                </div>
+                <div id="album-progress-content" class="hidden flex flex-col items-center justify-center py-2">
+                    <div class="text-indigo-400 font-bold text-lg mb-1" id="album-progress-text">0%</div>
+                    <p class="text-xs text-zinc-400 mb-2" id="album-status-text">Загрузка...</p>
+                    <div class="w-full max-w-xs bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                        <div id="album-progress-bar" class="bg-indigo-600 h-full w-0 transition-all duration-150"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="album-photos-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6"></div>
+        </div>
+
+        <div id="section-my-albums" class="section-view hidden">
+            <h2 class="text-xl sm:text-2xl font-bold mb-6">Мои созданные альбомы</h2>
+            <div id="my-albums-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6"></div>
+        </div>
+
+        <div id="section-my-photos" class="section-view hidden">
+            <h2 class="text-xl sm:text-2xl font-bold mb-6">Мои одиночные фотографии</h2>
+            <div id="my-photos-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 px-5 py-3.5 rounded-2xl flex items-center gap-3 shadow-2xl transition-all duration-300 translate-y-20 opacity-0 z-50">
+        <div id="toast-icon"></div>
+        <div id="toast-message" class="text-sm font-medium text-zinc-200"></div>
+    </div>
+
+    <div id="pdf-lightbox" class="hidden fixed inset-0 bg-zinc-950/98 z-50 flex flex-col w-full h-full">
+        <div class="w-full h-14 sm:h-16 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center px-6 sticky top-0 z-50">
+            <span id="lightbox-title" class="font-bold text-xs sm:text-sm text-zinc-200 truncate max-w-[200px] sm:max-w-md">Просмотр</span>
+            <button id="close-lightbox-btn" class="w-9 h-9 sm:w-10 sm:h-10 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl flex items-center justify-center transition-colors">
+                <i class="fa-solid fa-xmark text-base sm:text-lg"></i>
+            </button>
+        </div>
+        <div id="lightbox-scroll-container" class="pdf-viewer flex-1 overflow-y-auto w-full h-full flex flex-col items-center gap-8 sm:gap-16 py-6 sm:py-12 px-3 sm:px-4 scroll-smooth"></div>
+    </div>
+
+    <footer class="w-full bg-zinc-950 border-t border-zinc-900 mt-16 flex-shrink-0">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-zinc-500">
+            <div class="flex items-center gap-4 flex-wrap justify-center sm:justify-start">
+                <span>&copy; 2026 SnapSpace. Все права защищены.</span>
+                <span class="hidden sm:inline text-zinc-800">|</span>
+                <button onclick="togglePrivacyModal(true)" class="hover:text-zinc-300 transition-colors underline decoration-dotted font-medium">Политика конфиденциальности</button>
+            </div>
+            <div class="flex items-center gap-4 text-[11px] tracking-wide font-medium">
+                <span class="hover:text-zinc-400 transition-colors cursor-help">Лимит: 10 МБ</span>
+                <span class="text-zinc-800">•</span>
+                <span class="hover:text-zinc-400 transition-colors cursor-help">Альбом: макс 23 photo</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const IMGBB_API_KEY = "56e74b7caa269a795a934ff129b390af"; 
+
+        if (!localStorage.getItem('snapspace_albums')) localStorage.setItem('snapspace_albums', JSON.stringify([]));
+        if (!localStorage.getItem('snapspace_photos')) localStorage.setItem('snapspace_photos', JSON.stringify([]));
+
+        let currentAlbumId = null;
+        let photosCount = 0;
+        let allPhotosUrls = [];
+
+        const sections = ['main', 'album-view', 'my-albums', 'my-photos'];
+        
+        const modal = document.getElementById('album-modal');
+        const privacyModal = document.getElementById('privacy-modal');
+        const createAlbumBtn = document.getElementById('create-album-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const saveAlbumBtn = document.getElementById('save-album-btn');
+        const albumTitleInput = document.getElementById('album-title-input');
+        const shareAlbumBtn = document.getElementById('share-album-btn');
+        const deleteAlbumBtn = document.getElementById('delete-album-btn');
+        const albumTitle = document.getElementById('album-title');
+        
+        const mainDrop = document.getElementById('main-drop-zone');
+        const albumDrop = document.getElementById('album-drop-zone');
+        const albumPhotosGrid = document.getElementById('album-photos-grid');
+        const myPhotosGrid = document.getElementById('my-photos-grid');
+
+        const lightbox = document.getElementById('pdf-lightbox');
+        const lightboxContainer = document.getElementById('lightbox-scroll-container');
+        const closeLightboxBtn = document.getElementById('close-lightbox-btn');
+        const globalDragOverlay = document.getElementById('file-drag-overlay');
+
+        function togglePrivacyModal(show) {
+            if(show) {
+                privacyModal.classList.remove('hidden');
+            } else {
+                privacyModal.classList.add('hidden');
+            }
+        }
+
+        function runLocalCleaner() {
+            const now = new Date().getTime();
+            let albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            let photos = JSON.parse(localStorage.getItem('snapspace_photos'));
+
+            photos = photos.filter(p => !p.delete_at || new Date(p.delete_at).getTime() > now);
+
+            const validAlbums = albums.filter(a => new Date(a.delete_at).getTime() > now);
+            const validAlbumIds = validAlbums.map(a => a.id);
+            
+            photos = photos.filter(p => !p.album_id || validAlbumIds.includes(p.album_id));
+
+            localStorage.setItem('snapspace_albums', JSON.stringify(validAlbums));
+            localStorage.setItem('snapspace_photos', JSON.stringify(photos));
+        }
+        setInterval(runLocalCleaner, 10000);
+        runLocalCleaner();
+
+        function showSection(sectionName) {
+            sections.forEach(s => {
+                const el = document.getElementById(`section-${s}`);
+                if (el) el.classList.add('hidden');
+            });
+            const targetEl = document.getElementById(`section-${sectionName}`);
+            if (targetEl) targetEl.classList.remove('hidden');
+            
+            if (sectionName !== 'album-view') window.history.pushState({}, '', window.location.pathname);
+
+            ['main', 'my-albums', 'my-photos'].forEach(nav => {
+                const btn = document.getElementById(`nav-${nav}`);
+                if (!btn) return;
+                if (nav === sectionName) {
+                    btn.className = "px-3 sm:px-4 py-2 rounded-lg text-indigo-400 bg-zinc-950 border border-zinc-800/80 transition-all whitespace-nowrap";
+                } else {
+                    btn.className = "px-3 sm:px-4 py-2 rounded-lg text-zinc-400 hover:text-white transition-all whitespace-nowrap";
+                }
+            });
+
+            if (sectionName === 'main') fetchRecentActivity();
+            if (sectionName === 'my-albums') fetchMyAlbums();
+            if (sectionName === 'my-photos') fetchMyPhotos();
+        }
+
+        createAlbumBtn.onclick = () => modal.classList.remove('hidden');
+        closeModalBtn.onclick = () => modal.classList.add('hidden');
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            document.getElementById('toast-icon').innerHTML = type === 'error' ? '<i class="fa-solid fa-circle-xmark text-red-500"></i>' : '<i class="fa-solid fa-circle-check text-emerald-500"></i>';
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        saveAlbumBtn.onclick = () => {
+            const title = albumTitleInput.value.trim();
+            const hoursToLive = parseInt(document.getElementById('album-time-input').value) || 24;
+            if (!title) return showToast('Введите название', 'error');
+
+            const albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            const albumId = 'album_' + Math.random().toString(36).substr(2, 9);
+            const deleteAt = new Date(Date.now() + hoursToLive * 60 * 60 * 1000).toISOString();
+
+            albums.push({ id: albumId, title, delete_at: deleteAt });
+            localStorage.setItem('snapspace_albums', JSON.stringify(albums));
+
+            modal.classList.add('hidden');
+            albumTitleInput.value = '';
+            window.history.pushState({}, '', `?album=${albumId}`);
+            loadAlbum(albumId);
+        };
+
+        shareAlbumBtn.onclick = () => {
+            navigator.clipboard.writeText(window.location.href);
+            showToast('Ссылка на альбом скопирована!');
+        };
+
+        deleteAlbumBtn.onclick = () => {
+            if (!currentAlbumId) return;
+            if (!confirm('Удалить этот альбом и все фото в нем?')) return;
+
+            let albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            let photos = JSON.parse(localStorage.getItem('snapspace_photos'));
+
+            albums = albums.filter(a => a.id !== currentAlbumId);
+            photos = photos.filter(p => p.album_id !== currentAlbumId);
+
+            localStorage.setItem('snapspace_albums', JSON.stringify(albums));
+            localStorage.setItem('snapspace_photos', JSON.stringify(photos));
+
+            showToast('Альбом безвозвратно удален');
+            showSection('my-albums');
+        };
+
+        function formatTimeLeft(deleteAtIso) {
+            const diff = new Date(deleteAtIso) - new Date();
+            if (diff <= 0) return 'Удалено';
+            const totalMinutes = Math.floor(diff / 60000);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if (hours === 0) {
+                return `<span class="text-red-400 font-bold animate-pulse"><i class="fa-regular fa-clock mr-1"></i>${minutes} мин.</span>`;
+            }
+            return `<span><i class="fa-regular fa-clock text-zinc-500 mr-1"></i>${hours} ч. ${minutes} мин.</span>`;
+        }
+
+        setInterval(() => {
+            document.querySelectorAll('[data-expiry]').forEach(el => {
+                const isoDate = el.getAttribute('data-expiry');
+                el.innerHTML = formatTimeLeft(isoDate);
+            });
+        }, 30000);
+
+        function loadAlbum(id) {
+            const albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            const album = albums.find(a => a.id === id);
+            if (!album) { showToast('Альбом не найден или удален', 'error'); showSection('main'); return; }
+
+            const photos = JSON.parse(localStorage.getItem('snapspace_photos')).filter(p => p.album_id === id);
+
+            currentAlbumId = id;
+            photosCount = photos.length;
+            allPhotosUrls = photos.map(p => p.url);
+
+            showSection('album-view');
+            albumTitle.textContent = album.title;
+            document.getElementById('album-counter').querySelector('span').textContent = `Загружено: ${photosCount} из 23 фото`;
+
+            albumDrop.classList.remove('hidden');
+            shareAlbumBtn.classList.remove('hidden');
+            deleteAlbumBtn.classList.remove('hidden');
+
+            albumPhotosGrid.innerHTML = '';
+            photos.forEach((photo) => {
+                albumPhotosGrid.appendChild(createCard(photo.id, photo.url, true, true, album.delete_at));
+            });
+        }
+
+        async function fetchRecentActivity() {
+            const container = document.getElementById('recent-uploads-container');
+            const grid = document.getElementById('recent-uploads-grid');
+            if (!grid || !container) return;
+            grid.innerHTML = '';
+
+            const albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            const photos = JSON.parse(localStorage.getItem('snapspace_photos'));
+
+            const typedAlbums = albums.map(a => {
+                const count = photos.filter(p => p.album_id === a.id).length;
+                return { ...a, type: 'album', total_photos: count };
+            });
+            const typedPhotos = photos.filter(p => !p.album_id).map(p => ({ ...p, type: 'photo' }));
+            
+            let combined = [...typedAlbums, ...typedPhotos].slice(0, 4);
+
+            if (combined.length === 0) { container.classList.add('hidden'); return; }
+            container.classList.remove('hidden');
+
+            combined.forEach((item) => {
+                const block = document.createElement('div');
+                block.setAttribute('data-id', item.id);
+                
+                if (item.type === 'album') {
+                    block.className = "bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 sm:p-5 hover:border-zinc-700 cursor-pointer transition-all flex flex-col justify-between aspect-square text-left";
+                    block.onclick = () => {
+                        window.history.pushState({}, '', `?album=${item.id}`);
+                        loadAlbum(item.id);
+                    };
+                    block.innerHTML = `
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center mb-2">
+                            <i class="fa-regular fa-folder-open text-xs sm:text-base"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs sm:text-sm text-white line-clamp-1 mb-1">${item.title}</h4>
+                            <p class="text-[10px] sm:text-[11px] text-zinc-400"><i class="fa-regular fa-image mr-0.5"></i> Снимков: ${item.total_photos}</p>
+                            <div data-expiry="${item.delete_at}" class="text-[10px] text-zinc-500 font-medium mt-1">${formatTimeLeft(item.delete_at)}</div>
+                        </div>
+                    `;
+                } else {
+                    block.className = "group relative aspect-square bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer transition-all";
+                    block.innerHTML = `
+                        <img src="${item.url}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+                        <button class="delete-photo-btn absolute top-2 right-2 w-7 h-7 bg-red-600/80 hover:bg-red-600 backdrop-blur text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20" title="Удалить фото"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 gap-1.5">
+                            <button class="copy-link-btn w-full bg-zinc-900/90 hover:bg-indigo-600 hover:text-white border border-zinc-700 text-[10px] sm:text-xs font-medium py-1.5 rounded-lg z-10"><i class="fa-regular fa-copy"></i> Ссылка</button>
+                            <button class="download-btn w-full bg-zinc-950/90 hover:bg-white hover:text-black border border-zinc-800 text-[10px] sm:text-xs font-medium py-1.5 rounded-lg z-10"><i class="fa-solid fa-file-arrow-down"></i> Скачать</button>
+                        </div>
+                    `;
+                    
+                    block.onclick = async (e) => {
+                        if (e.target.closest('.delete-photo-btn')) { e.stopPropagation(); if (confirm('Удалить фото?')) executePhotoDelete(item.id, item.url, false); return; }
+                        if (e.target.closest('.copy-link-btn')) { e.stopPropagation(); navigator.clipboard.writeText(item.url); showToast('Ссылка скопирована!'); return; }
+                        if (e.target.closest('.download-btn')) { e.stopPropagation(); downloadExternalFile(item.url); return; }
+                        allPhotosUrls = photos.filter(p => !p.album_id).map(p => p.url);
+                        openPdfLightbox(item.url, false);
+                    };
+                }
+                grid.appendChild(block);
+            });
+        }
+
+        function fetchMyAlbums() {
+            const container = document.getElementById('my-albums-list');
+            if (!container) return;
+            container.innerHTML = '';
+            const albums = JSON.parse(localStorage.getItem('snapspace_albums'));
+            const photos = JSON.parse(localStorage.getItem('snapspace_photos'));
+
+            if (albums.length === 0) { container.innerHTML = '<p class="text-zinc-500 text-sm col-span-full">У вас пока нет созданных альбомов.</p>'; return; }
+            
+            albums.forEach(a => {
+                const count = photos.filter(p => p.album_id === a.id).length;
+                const box = document.createElement('div');
+                box.className = "bg-zinc-900 border border-zinc-800 rounded-2xl p-5 hover:border-zinc-700 cursor-pointer transition-all flex flex-col justify-between";
+                box.onclick = () => { window.history.pushState({}, '', `?album=${a.id}`); loadAlbum(a.id); };
+                box.innerHTML = `
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg mb-1 text-white truncate">${a.title}</h3>
+                        <p class="text-xs text-zinc-400 mb-4"><i class="fa-regular fa-image mr-1"></i> Снимков: ${count} из 23</p>
+                    </div>
+                    <div data-expiry="${a.delete_at}" class="text-[10px] sm:text-[11px] text-zinc-400 border-t border-zinc-800/60 pt-3 flex items-center gap-1.5 font-medium">${formatTimeLeft(a.delete_at)}</div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        function fetchMyPhotos() {
+            if (!myPhotosGrid) return;
+            myPhotosGrid.innerHTML = '';
+            const photos = JSON.parse(localStorage.getItem('snapspace_photos')).filter(p => !p.album_id);
+
+            if (photos.length === 0) { myPhotosGrid.innerHTML = '<p class="text-zinc-500 text-sm col-span-full">Вы не загружали одиночных фотографий.</p>'; return; }
+            allPhotosUrls = photos.map(p => p.url);
+            
+            photos.forEach((photo) => { 
+                myPhotosGrid.appendChild(createCard(photo.id, photo.url, true, false, photo.delete_at)); 
+            });
+        }
+
+        function executePhotoDelete(id, url, isAlbumContext) {
+            let photos = JSON.parse(localStorage.getItem('snapspace_photos'));
+            photos = photos.filter(p => p.id !== id);
+            localStorage.setItem('snapspace_photos', JSON.stringify(photos));
+            
+            showToast('Фотография удалена');
+            allPhotosUrls = allPhotosUrls.filter(u => u !== url);
+
+            const elements = document.querySelectorAll(`[data-id="${id}"]`);
+            elements.forEach(el => {
+                el.style.transform = 'scale(0.8)';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            });
+
+            if (isAlbumContext) {
+                photosCount--;
+                document.getElementById('album-counter').querySelector('span').textContent = `Загружено: ${photosCount} из 23 фото`;
+            }
+        }
+
+        function createCard(id, url, isOwner, isAlbumContext, deleteAt = null) {
+            const card = document.createElement('div');
+            card.setAttribute('data-id', id);
+            card.className = "group relative aspect-square bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-md hover:border-zinc-700 cursor-pointer transition-all duration-300";
+            
+            let deleteHtml = isOwner ? `
+                <button class="delete-photo-btn absolute top-2 right-2 w-7 h-7 bg-red-600/80 hover:bg-red-600 backdrop-blur text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20" title="Удалить фото сейчас"><i class="fa-solid fa-trash-can text-xs"></i></button>
+            ` : '';
+
+            let expiryHtml = deleteAt ? `
+                <div data-expiry="${deleteAt}" class="absolute top-2 left-2 bg-black/70 backdrop-blur border border-zinc-800/60 text-[10px] text-zinc-300 px-2 py-1 rounded-md z-10 flex items-center gap-1 font-medium transition-opacity duration-300 group-hover:opacity-0">${formatTimeLeft(deleteAt)}</div>
+            ` : '';
+
+            card.innerHTML = `
+                <img src="${url}" class="w-full h-full object-cover transition-transform duration-500 md:group-hover:scale-105" loading="lazy">
+                ${deleteHtml}
+                ${expiryHtml}
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 sm:p-3 gap-1.5">
+                    <button class="copy-link-btn w-full bg-zinc-900/90 hover:bg-indigo-600 hover:text-white border border-zinc-700 text-[10px] sm:text-xs font-medium py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 z-10"><i class="fa-regular fa-copy"></i> Ссылка</button>
+                    <button class="download-btn w-full bg-zinc-950/90 hover:bg-white hover:text-black border border-zinc-800 text-[10px] sm:text-xs font-medium py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 z-10"><i class="fa-solid fa-file-arrow-down"></i> Скачать</button>
+                </div>
+            `;
+            
+            card.onclick = async (e) => { 
+                if (e.target.closest('.delete-photo-btn')) { if (confirm('Удалить эту фотографию навсегда?')) executePhotoDelete(id, url, isAlbumContext); return; }
+                if (e.target.closest('.copy-link-btn')) { e.stopPropagation(); navigator.clipboard.writeText(url); showToast('Пнямая ссылка на фото скопирована!'); return; }
+                if (e.target.closest('.download-btn')) { e.stopPropagation(); downloadExternalFile(url); }
+                else { openPdfLightbox(url, isAlbumContext); }
+            };
+            return card;
+        }
+
+        function downloadExternalFile(url) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.download = 'screenshot.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function openPdfLightbox(targetUrl, isAlbumContext) {
+            document.getElementById('lightbox-title').textContent = isAlbumContext ? albumTitle.textContent : 'Мои одиночные фото';
+            lightboxContainer.innerHTML = '';
+            if (!allPhotosUrls || allPhotosUrls.length === 0) return;
+
+            allPhotosUrls.forEach((url, idx) => {
+                const imgWrapper = document.createElement('div');
+                imgWrapper.id = `page-${idx}`;
+                imgWrapper.className = "w-full max-w-2xl bg-zinc-900/30 border border-zinc-800/60 rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center shadow-2xl flex-shrink-0";
+                imgWrapper.innerHTML = `
+                    <img src="${url}" class="w-auto max-w-full h-auto max-h-[70vh] sm:max-h-[80vh] object-contain rounded-xl shadow-md">
+                    <div class="text-[10px] sm:text-xs font-mono text-zinc-500 mt-3 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">Страница ${idx + 1} из ${allPhotosUrls.length}</div>
+                `;
+                lightboxContainer.appendChild(imgWrapper);
+            });
+
+            lightbox.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const targetIndex = allPhotosUrls.indexOf(targetUrl);
+            setTimeout(() => {
+                const targetPage = document.getElementById(`page-${targetIndex}`);
+                if (targetPage) targetPage.scrollIntoView({ block: 'center', behavior: 'instant' });
+            }, 50);
+        }
+
+        closeLightboxBtn.onclick = () => { lightbox.classList.add('hidden'); document.body.style.overflow = 'auto'; };
+
+        async function uploadFiles(files, isToAlbum) {
+            if (files.length === 0) return;
+
+            if (isToAlbum && (photosCount + files.length) > 23) {
+                return showToast(`В альбоме лимит 23 фото! Мест осталось: ${23 - photosCount}`, 'error');
+            }
+
+            const prefix = isToAlbum ? 'album' : 'main';
+            const dropContent = document.getElementById(`${prefix}-drop-content`);
+            const progressContent = document.getElementById(`${prefix}-progress-content`);
+            const progressBar = document.getElementById(`${prefix}-progress-bar`);
+            const progressText = document.getElementById(`${prefix}-progress-text`);
+            const statusText = document.getElementById(`${prefix}-status-text`);
+
+            if (dropContent && progressContent) { dropContent.classList.add('hidden'); progressContent.classList.remove('hidden'); }
+
+            let localPhotos = JSON.parse(localStorage.getItem('snapspace_photos'));
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (statusText) statusText.textContent = `Загрузка ${i + 1} из ${files.length}: ${file.name}`;
+
+                const formData = new FormData();
+                formData.append('image', file);
+
+                try {
+                    const directUrl = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, true);
+
+                        xhr.upload.onprogress = (e) => {
+                            if (e.lengthComputable && progressBar && progressText) {
+                                const percent = Math.round((e.loaded / e.total) * 100);
+                                progressBar.style.width = `${percent}%`;
+                                progressText.textContent = `${percent}%`;
+                            }
+                        };
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                const res = JSON.parse(xhr.responseText);
+                                resolve(res.data.url);
+                            } else { reject(new Error()); }
+                        };
+                        xhr.onerror = () => reject(new Error());
+                        xhr.send(formData);
+                    });
+
+                    const photoId = 'photo_' + Math.random().toString(36).substr(2, 9);
+                    let deleteAt = null;
+
+                    if (!isToAlbum) {
+                        const hours = parseInt(document.getElementById('photo-time-input').value) || 24;
+                        deleteAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+                    }
+
+                    localPhotos.push({
+                        id: photoId,
+                        album_id: isToAlbum ? currentAlbumId : null,
+                        url: directUrl,
+                        delete_at: deleteAt
+                    });
+
+                } catch (error) {
+                    showToast(`Ошибка при отправке "${file.name}"`, 'error');
+                }
+            }
+
+            localStorage.setItem('snapspace_photos', JSON.stringify(localPhotos));
+
+            if (dropContent && progressContent) {
+                dropContent.classList.remove('hidden');
+                progressContent.classList.add('hidden');
+                if (progressBar) progressBar.style.width = '0%';
+            }
+
+            showToast('Все файлы успешно сжаты и загружены!');
+            if (isToAlbum) { loadAlbum(currentAlbumId); } else { showSection('main'); }
+        }
+
+        mainDrop.onclick = () => document.getElementById('main-file-input').click();
+        document.getElementById('main-file-input').onchange = (e) => { if(e.target.files.length > 0) uploadFiles(e.target.files, false); };
+        
+        albumDrop.onclick = () => document.getElementById('album-file-input').click();
+        document.getElementById('album-file-input').onchange = (e) => { if(e.target.files.length > 0) uploadFiles(e.target.files, true); };
+
+        let dragCounter = 0;
+        window.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            if (dragCounter === 1) {
+                globalDragOverlay.classList.remove('hidden');
+                setTimeout(() => { globalDragOverlay.classList.remove('opacity-0'); globalDragOverlay.querySelector('div').classList.remove('scale-95'); }, 10);
+            }
+        });
+        window.addEventListener('dragover', (e) => { e.preventDefault(); });
+        window.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) hideGlobalDragOverlay(); });
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            hideGlobalDragOverlay();
+            if (e.dataTransfer.files.length > 0) {
+                const isAlbumContext = !document.getElementById('section-album-view').classList.contains('hidden');
+                if (isAlbumContext) uploadFiles(e.dataTransfer.files, true);
+                else uploadFiles(e.dataTransfer.files, false);
+            }
+        });
+        function hideGlobalDragOverlay() {
+            globalDragOverlay.classList.add('opacity-0'); globalDragOverlay.querySelector('div').classList.add('scale-95');
+            setTimeout(() => { if (dragCounter === 0) globalDragOverlay.classList.add('hidden'); }, 300);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const albumIdParam = urlParams.get('album');
+        if (albumIdParam) loadAlbum(albumIdParam);
+        else showSection('main');
+    </script>
+</body>
+</html>
